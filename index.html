@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>우야 — AI 디스코드 서버 관리 봇</title>
+<meta name="description" content="프롬프트 한 줄로 디스코드 서버를 자동으로 만들어주는 AI 봇, 우야.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121110;
+    --bg-2:#1b1917;
+    --paper:#efe9dd;
+    --ink:#e9e4d8;
+    --ink-dim:#a39d90;
+    --spray:#37e0c8;
+    --spray-dim:#1d6f65;
+    --tag:#f2a93b;
+    --tag-dim:#7a5620;
+    --line:#37332c;
+    --danger:#e2536b;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans KR', sans-serif;
+    line-height:1.7;
+    overflow-x:hidden;
+  }
+  a{color:inherit;}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    letter-spacing:.14em;
+    color:var(--spray);
+    text-transform:uppercase;
+  }
+  h1,h2,h3{font-family:'Archivo Black', sans-serif; font-weight:400; margin:0; letter-spacing:-0.01em;}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:14px 28px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:14px;
+    font-weight:700;
+    text-decoration:none;
+    border-radius:2px;
+    border:2px solid transparent;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:focus-visible{outline:3px solid var(--spray); outline-offset:3px;}
+  .btn-primary{background:var(--spray); color:#08211d;}
+  .btn-primary:hover{transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--tag);}
+  .btn-ghost{border-color:var(--ink-dim); color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--ink); transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--line);}
+
+  /* ---- NAV ---- */
+  nav{
+    position:sticky; top:0; z-index:20;
+    background:rgba(18,17,16,.88);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; padding:16px 24px;}
+  .logo{font-family:'Archivo Black'; font-size:20px; color:var(--ink);}
+  .logo span{color:var(--spray);}
+  nav .links{display:flex; gap:22px; font-family:'JetBrains Mono',monospace; font-size:13px;}
+  nav .links a{text-decoration:none; color:var(--ink-dim);}
+  nav .links a:hover{color:var(--spray);}
+  @media (max-width:640px){ nav .links{display:none;} }
+
+  /* ---- HERO ---- */
+  .hero{
+    position:relative;
+    padding:96px 0 88px;
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(ellipse 700px 400px at 15% -10%, rgba(55,224,200,.10), transparent 60%),
+      radial-gradient(ellipse 600px 400px at 90% 10%, rgba(242,169,59,.08), transparent 60%);
+  }
+  .tag-badge{
+    display:inline-block;
+    font-family:'JetBrains Mono';
+    font-size:12px;
+    color:var(--tag);
+    border:1px dashed var(--tag-dim);
+    padding:5px 12px;
+    border-radius:2px;
+    margin-bottom:22px;
+    transform:rotate(-2deg);
+  }
+  .hero h1{
+    font-size:clamp(56px, 11vw, 108px);
+    line-height:.95;
+    color:var(--paper);
+    position:relative;
+    display:inline-block;
+  }
+  .hero h1 .spray-underline{
+    display:block;
+    width:100%;
+    height:14px;
+    margin-top:6px;
+  }
+  .hero p.lede{
+    max-width:520px;
+    font-size:18px;
+    color:var(--ink-dim);
+    margin:22px 0 34px;
+  }
+  .hero p.lede b{color:var(--ink); font-weight:500;}
+  .hero .ctas{display:flex; gap:14px; flex-wrap:wrap;}
+  .spray-splat{
+    position:absolute; right:-40px; top:60px; width:340px; opacity:.9;
+    pointer-events:none;
+  }
+  @media (max-width:800px){ .spray-splat{display:none;} }
+
+  /* ---- MARQUEE ---- */
+  .marquee{
+    border-bottom:1px solid var(--line);
+    background:var(--bg-2);
+    padding:14px 0;
+    overflow:hidden;
+    white-space:nowrap;
+  }
+  .marquee-track{
+    display:inline-block;
+    font-family:'JetBrains Mono';
+    font-size:13px;
+    color:var(--ink-dim);
+    letter-spacing:.08em;
+    animation:scroll 26s linear infinite;
+  }
+  .marquee-track span{margin:0 26px;}
+  .marquee-track span.hot{color:var(--spray);}
+  @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  @media (prefers-reduced-motion:reduce){ .marquee-track{animation:none;} }
+
+  /* ---- SECTION ---- */
+  section{padding:80px 0;}
+  .section-head{margin-bottom:44px;}
+  .section-head h2{font-size:clamp(30px,5vw,42px); color:var(--paper);}
+  .section-head p{color:var(--ink-dim); max-width:520px; margin-top:12px;}
+
+  /* ---- FREE GRID ---- */
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line);}
+  @media (max-width:760px){ .grid{grid-template-columns:1fr 1fr;} }
+  @media (max-width:480px){ .grid{grid-template-columns:1fr;} }
+  .cell{
+    background:var(--bg);
+    padding:28px 24px;
+    transition:background .2s ease;
+  }
+  .cell:hover{background:var(--bg-2);}
+  .cell .num{font-family:'JetBrains Mono'; font-size:12px; color:var(--spray-dim); display:block; margin-bottom:14px;}
+  .cell h3{font-family:'Noto Sans KR'; font-weight:700; font-size:17px; color:var(--ink); margin-bottom:8px;}
+  .cell p{font-size:14px; color:var(--ink-dim); margin:0;}
+
+  /* ---- PRICING ---- */
+  .price-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media (max-width:700px){ .price-grid{grid-template-columns:1fr;} }
+  .price-card{
+    border:1px solid var(--line);
+    background:var(--bg-2);
+    padding:30px 28px;
+    position:relative;
+  }
+  .price-card.featured{border-color:var(--spray-dim); box-shadow:0 0 0 1px var(--spray-dim);}
+  .price-card .stamp{
+    position:absolute; top:-14px; right:24px;
+    font-family:'JetBrains Mono'; font-size:11px;
+    background:var(--spray); color:#08211d;
+    padding:4px 10px; border-radius:2px;
+    transform:rotate(3deg);
+    font-weight:700;
+  }
+  .price-card h3{font-size:18px; color:var(--ink); margin-bottom:6px;}
+  .price-card .price{font-family:'Archivo Black'; font-size:44px; color:var(--paper); margin:14px 0 18px;}
+  .price-card .price span{font-family:'JetBrains Mono'; font-size:14px; color:var(--ink-dim); font-weight:400;}
+  .price-card ul{list-style:none; padding:0; margin:0 0 20px; font-size:14px; color:var(--ink-dim);}
+  .price-card ul li{padding:7px 0; border-top:1px solid var(--line);}
+  .price-card ul li:first-child{border-top:none;}
+  .price-card .bonus{
+    font-size:13px; color:var(--tag);
+    background:rgba(242,169,59,.08);
+    border:1px dashed var(--tag-dim);
+    padding:10px 12px; border-radius:2px;
+    margin-top:14px;
+  }
+
+  /* ---- CHARACTER ---- */
+  .char-block{
+    display:grid; grid-template-columns:220px 1fr; gap:40px; align-items:center;
+    border:1px solid var(--line);
+    padding:36px;
+    background:var(--bg-2);
+  }
+  @media (max-width:700px){ .char-block{grid-template-columns:1fr; text-align:center;} }
+  .char-frame{
+    aspect-ratio:1; border:2px solid var(--line); border-radius:2px;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,.02) 8px, rgba(255,255,255,.02) 16px),
+      var(--bg);
+    font-family:'JetBrains Mono'; font-size:12px; color:var(--ink-dim);
+  }
+  .char-block h3{font-size:22px; color:var(--paper); margin-bottom:6px;}
+  .char-block .role{font-family:'JetBrains Mono'; font-size:12px; color:var(--tag); margin-bottom:14px; display:block;}
+  .char-block p{color:var(--ink-dim); font-size:15px; margin:0;}
+  .rp-block em{font-style:italic; color:var(--ink-dim);}
+  .rp-block{color:var(--ink); font-size:15px; margin:0 0 6px;}
+  .rp-hint{font-family:'JetBrains Mono'; font-size:12px; color:var(--tag); margin:0;}
+
+  /* ---- CTA ---- */
+  .cta-band{
+    text-align:center;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    padding:88px 0;
+    background:linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  }
+  .cta-band h2{font-size:clamp(32px,6vw,52px); color:var(--paper); margin-bottom:18px;}
+  .cta-band p{color:var(--ink-dim); margin-bottom:32px;}
+  .cta-band .ctas{display:flex; gap:14px; justify-content:center; flex-wrap:wrap;}
+
+  footer{padding:36px 0 60px;}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; font-family:'JetBrains Mono'; font-size:12px; color:var(--ink-dim);}
+  footer a{text-decoration:underline; text-underline-offset:3px;}
+
+  .reveal{opacity:0; transform:translateY(16px); transition:opacity .5s ease, transform .5s ease;}
+  .reveal.in{opacity:1; transform:none;}
+  @media (prefers-reduced-motion:reduce){ .reveal{opacity:1; transform:none; transition:none;} }
+  .masthead{
+    position:relative;
+    width:100%;
+    height:min(56vw, 460px);
+    min-height:260px;
+    overflow:hidden;
+    border-bottom:1px solid var(--line);
+  }
+  .masthead img{
+    width:100%; height:100%;
+    object-fit:cover;
+    object-position:50% 22%;
+    display:block;
+    filter:saturate(1.02) contrast(1.02);
+  }
+  .masthead::after{
+    content:"";
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(18,17,16,0) 45%, rgba(18,17,16,.65) 82%, var(--bg) 100%);
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <img src="uya-character.png" alt="우야 캐릭터 일러스트 — 담배를 물고 그림을 그리는 하얀 장발머리 여성 캐릭터">
+</div>
+
+<nav>
+  <div class="wrap">
+    <div class="logo">우야<span>.</span></div>
+    <div class="links">
+      <a href="#free">무료 기능</a>
+      <a href="#pricing">가격</a>
+      <a href="#character">우야는 누구?</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag-badge">✎ AI 디스코드 서버 관리 봇</span>
+    <h1>우야<svg class="spray-underline" viewBox="0 0 400 14" preserveAspectRatio="none"><path d="M2 8 C 60 2, 140 12, 200 6 S 340 2, 398 9" stroke="#37e0c8" stroke-width="6" fill="none" stroke-linecap="round"/></svg></h1>
+    <p class="lede">
+      채널 나누고, 역할 정하고, 권한 맞추고 — 그 번거로운 걸
+      <b>프롬프트 한 줄</b>로 끝내주는 서버 관리 봇.
+      보안, 티켓, 음성채널은 그냥 무료로 켜두면 돼.
+    </p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1531008453856727220&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">봇 초대하기 →</a>
+      <a class="btn btn-ghost" href="#pricing">가격 보기</a>
+    </div>
+  </div>
+  <svg class="spray-splat" viewBox="0 0 300 300" fill="none">
+    <circle cx="230" cy="70" r="46" fill="#f2a93b" opacity=".10"/>
+    <circle cx="180" cy="140" r="10" fill="#f2a93b" opacity=".35"/>
+    <circle cx="255" cy="150" r="5" fill="#37e0c8" opacity=".4"/>
+    <circle cx="205" cy="190" r="3" fill="#37e0c8" opacity=".5"/>
+  </svg>
+</header>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span class="hot">/기본설정</span><span>무료</span><span>보안</span><span>티켓</span><span>음성채널</span><span>통계</span>
+    <span class="hot">/시작하기</span><span>프리미엄</span><span>AI 서버 자동생성</span>
+    <span class="hot">/우야랑대화</span><span>1:1 AI 채팅</span>
+    <span class="hot">/기본설정</span><span>무료</span><span>보안</span><span>티켓</span><span>음성채널</span><span>통계</span>
+    <span class="hot">/시작하기</span><span>프리미엄</span><span>AI 서버 자동생성</span>
+    <span class="hot">/우야랑대화</span><span>1:1 AI 채팅</span>
+  </div>
+</div>
+
+<section id="free">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Free / 무료</span>
+      <h2><code style="font-family:'JetBrains Mono'">/기본설정</code> 한 번이면 끝</h2>
+      <p>결제 없이 바로 켜지는 기본기. 서버 하나에 딱 필요한 것들만 담았어.</p>
+    </div>
+    <div class="grid reveal">
+      <div class="cell"><span class="num">01</span><h3>🔒 보안</h3><p>글자수·이미지·링크·이모지 도배 자동 감지, 경고 누적 시스템</p></div>
+      <div class="cell"><span class="num">02</span><h3>🎫 티켓</h3><p>버튼 하나로 1:1 문의 채널 생성, 종료 시 대화 로그 자동 저장</p></div>
+      <div class="cell"><span class="num">03</span><h3>🔊 음성채널</h3><p>들어가면 내 이름 붙은 방 자동 생성, 비면 알아서 삭제</p></div>
+      <div class="cell"><span class="num">04</span><h3>📊 통계</h3><p>멤버 수·인증 현황이 채널 하나에서 실시간으로 갱신</p></div>
+      <div class="cell"><span class="num">05</span><h3>🔑 인증</h3><p>버튼 누르면 시민 역할 지급, 그제서야 서버가 보임</p></div>
+      <div class="cell"><span class="num">06</span><h3>📢 공지</h3><p>즉시 공지 작성 + 원하는 시각에 자동 발송 예약까지</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Premium / 프리미엄</span>
+      <h2>서버 하나를 통째로 짜야 할 때</h2>
+      <p>기본기를 넘어서, 진짜 서버 구조 자체를 AI가 만들어주길 원한다면.</p>
+    </div>
+    <div class="price-grid reveal">
+      <div class="price-card featured">
+        <span class="stamp">가장 인기</span>
+        <h3>서버 프리미엄</h3>
+        <div class="price">$1<span> / 서버, 평생</span></div>
+        <ul>
+          <li><code>/시작하기</code> — AI 프롬프트로 서버 구조 전체 자동 생성</li>
+          <li><code>/서버초기화</code> — 채널·역할 전체 초기화</li>
+          <li><code>/카테고리이동</code> — 카테고리 순서 조정</li>
+        </ul>
+        <div class="bonus">🎁 서버 소유주에게 AI 대화 프리미엄 자동 지급</div>
+      </div>
+      <div class="price-card">
+        <h3>AI 대화 프리미엄</h3>
+        <div class="price">$0.75<span> / 계정, 평생</span></div>
+        <ul>
+          <li><code>/우야랑대화</code> — 캐릭터 우야와 DM으로 1:1 대화</li>
+          <li>상황극(RP) 지원, 대화 기억 요약</li>
+          <li>서버 구매 없이 단독으로도 구매 가능</li>
+        </ul>
+        <div class="bonus" style="border-color:var(--line); color:var(--ink-dim);">결제: 계좌이체 + 수동 승인 · 확인 후 1시간 이내 활성화</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="character">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Who is 우야</span>
+      <h2>봇 뒤에 있는 캐릭터</h2>
+    </div>
+    <div class="char-block reveal">
+      <div class="char-frame"><img src="uya-character.png" alt="우야 캐릭터 일러스트" style="width:100%;height:100%;object-fit:cover;object-position:50% 20%;"></div>
+      <div>
+        <span class="role">뒷골목 · 화가 지망생 · 백사파</span>
+        <h3>우야</h3>
+        <p class="rp-block">
+          <em>골목을 걸어가다 그림을 그리는 여자를 마주쳤다.</em><br>
+          "...뭐야. 왜 봐."<br>
+          <em>그녀는 짜증이 난 듯 미간을 구긴다.</em>
+        </p>
+        <p class="rp-hint">(<code>/우야랑대화</code>로 시작해보세요.)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="cta-band" id="invite">
+  <div class="wrap">
+    <h2>번거로운 세팅, 우야한테 맡겨</h2>
+    <p>초대는 무료. 무료 기능부터 바로 써볼 수 있어요.</p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1531008453856727220&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">봇 초대하기 →</a>
+      <a class="btn btn-ghost" href="https://discord.gg/vukhpaTqd" target="_blank" rel="noopener">디스코드 서버 참여</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© 우야봇</span>
+    <span>
+      <a href="https://mangpu123.github.io/uya-bot-docs/terms-of-service.md" target="_blank" rel="noopener">이용약관</a> ·
+      <a href="https://mangpu123.github.io/uya-bot-docs/privacy-policy.md" target="_blank" rel="noopener">개인정보처리방침</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  const items = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+  }, {threshold:.15});
+  items.forEach(el=>io.observe(el));
+</script>
+
+</body>
+</html>
